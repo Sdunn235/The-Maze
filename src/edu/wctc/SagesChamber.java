@@ -9,14 +9,11 @@ package edu.wctc;
 public class SagesChamber extends Room implements Interactable {
     private int interactionCount = 0;
     private final String[] dialogues = {
-        "The creature ahead feeds on fear. Knowledge is your shield.\n" +
-        "    Take time to prepare yourself mentally.",
+        "The creature ahead feeds on fear. Knowledge is your shield. Take time to prepare yourself mentally.",
 
-        "I sense a weakness... its left flank is vulnerable.\n" +
-        "    Strike there with conviction when the moment comes.",
+        "I sense a weakness... its left flank is vulnerable. Strike there with conviction when the moment comes.",
 
-        "You are as prepared as you can be. Go now, and reclaim your kingdom.\n" +
-        "    May fortune favor the brave."
+        "You are as prepared as you can be. Go now, and reclaim your kingdom. May fortune favor the brave."
     };
 
     /**
@@ -25,6 +22,38 @@ public class SagesChamber extends Room implements Interactable {
      */
     public SagesChamber(String name) {
         super(name);
+    }
+
+    @Override
+    public String getSensoryDescription() {
+        return "╔════════════════════════════════════════╗\n" +
+               "║      YOU ENTER THE SAGE'S CHAMBER    ║\n" +
+               "╚════════════════════════════════════════╝\n\n" +
+               "YOUR SECOND OBJECTIVE\n" +
+               "You have obtained a weapon, but weaponry alone will not be enough.\n" +
+               "The creature is ancient and powerful beyond measure. You must seek\n" +
+               "knowledge if you hope to find its weakness. An old sage dwells in this\n" +
+               "place, said to possess wisdom that spans millennia. Every word they\n" +
+               "speak could be the difference between victory and death.\n\n" +
+               "THE LIBRARY\n" +
+               "The moment you step through the doorway, the air transforms.\n" +
+               "The oppressive coldness of the stone corridors yields to a warm,\n" +
+               "almost inviting atmosphere. The scent of ancient paper and herbs\n" +
+               "fills your lungs—sage, lavender, and something you cannot quite place.\n\n" +
+               "Your eyes adjust to softer lighting. Countless candles flicker\n" +
+               "throughout the chamber, casting dancing shadows across towering shelves\n" +
+               "laden with books, scrolls, and artifacts of immense age.\n\n" +
+               "In the center of the chamber, a robed figure sits in perfect stillness\n" +
+               "upon a stone bench. Their presence radiates calm—an island of serenity\n" +
+               "in a sea of chaos. Ancient eyes open slowly as they sense your presence.\n" +
+               "You sense that this being possesses knowledge that may prove crucial\n" +
+               "to your survival. They motion for you to speak with them.\n";
+    }
+
+    @Override
+    public String getShortRoomDescription() {
+        return "The library is vast and filled with ancient knowledge, " +
+               "though the sage sits in silent meditation.";
     }
 
     @Override

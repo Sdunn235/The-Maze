@@ -23,6 +23,9 @@ public abstract class Room {
     public int playerRow;
     public int playerCol;
 
+    // Track first-time entry for sensory descriptions
+    private boolean hasBeenEntered = false;
+
     /**
      * Constructs a Room with a given name.
      * All directional connections are initially null.
@@ -41,6 +44,7 @@ public abstract class Room {
         this.collisionGrid = null;
         this.playerRow = -1;
         this.playerCol = -1;
+        this.hasBeenEntered = false;
     }
 
     /**
@@ -242,6 +246,40 @@ public abstract class Room {
      */
     public void setDown(Room room) {
         this.down = room;
+    }
+
+    /**
+     * Checks if this is the player's first time entering the room.
+     * @return true if this is the first entry, false otherwise
+     */
+    public boolean isFirstEntry() {
+        return !hasBeenEntered;
+    }
+
+    /**
+     * Marks this room as having been entered by the player.
+     * Called when the player moves into the room.
+     */
+    public void markAsEntered() {
+        this.hasBeenEntered = true;
+    }
+
+    /**
+     * Gets the sensory description for first-time room entry.
+     * Default implementation returns empty string; subclasses can override.
+     * @return sensory description or empty string
+     */
+    public String getSensoryDescription() {
+        return "";
+    }
+
+    /**
+     * Gets a short version of the room description for non-interactable interactions.
+     * Default implementation returns empty string; subclasses can override.
+     * @return abbreviated room description
+     */
+    public String getShortRoomDescription() {
+        return "";
     }
 }
 

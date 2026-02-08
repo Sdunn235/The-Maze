@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import javax.swing.Timer;
 
 /**
  * GameGUI - Swing-based GUI for The Maze game.
@@ -13,7 +14,7 @@ import java.awt.event.ActionListener;
 public class GameGUI extends JFrame {
 
     private Maze maze;
-    private JTextArea narrativeArea;
+    private JTextPane narrativeArea;
     private JLabel roomLabel;
     private JLabel scoreLabel;
     private JLabel inventoryLabel;
@@ -24,6 +25,7 @@ public class GameGUI extends JFrame {
     // Player position tracking
     private int playerRow = 5;  // Starting position (center-ish)
     private int playerCol = 5;
+    private String lastRoomName = "";  // Track room changes
 
     private static final int TILE_SIZE = 35;
     private static final int GRID_WIDTH = 12;
@@ -73,6 +75,17 @@ public class GameGUI extends JFrame {
 
         add(mainPanel);
         setVisible(true);
+
+        // Display starting room's sensory narrative AFTER UI is visible
+        // Use Timer to ensure it appears at the end of initial text
+        Timer startTimer = new Timer(500, e -> {
+            String startingNarrative = maze.getStartingEntranceNarrative();
+            if (!startingNarrative.isEmpty()) {
+                appendSensoryNarrative(startingNarrative);
+            }
+        });
+        startTimer.setRepeats(false);
+        startTimer.start();
     }
 
     private JPanel createTopPanel() {
@@ -140,14 +153,13 @@ public class GameGUI extends JFrame {
         narrativeTitle.setFont(new Font("Arial", Font.BOLD, 14));
         narrativeTitle.setForeground(new Color(255, 215, 0));
 
-        narrativeArea = new JTextArea();
+        narrativeArea = new JTextPane();
         narrativeArea.setEditable(false);
-        narrativeArea.setLineWrap(true);
-        narrativeArea.setWrapStyleWord(true);
         narrativeArea.setBackground(new Color(26, 26, 26));
-        narrativeArea.setForeground(new Color(144, 238, 144));
         narrativeArea.setFont(new Font("Courier New", Font.PLAIN, 12));
-        narrativeArea.setText("Welcome to The Maze!\n\nYour quest:\n1. Find and loot the weapon\n2. Talk to the Sage for knowledge\n3. Defeat the Boss\n\nGood luck, adventurer!");
+        narrativeArea.setText("Welcome to The Maze!\n\n" +
+                            "Your quest:\n1. Find and loot the weapon\n2. Talk to the Sage for knowledge\n3. Defeat the Boss\n\n" +
+                            "Good luck, adventurer!\n\n");
 
         JScrollPane scrollPane = new JScrollPane(narrativeArea);
         scrollPane.getViewport().setBackground(new Color(26, 26, 26));
@@ -231,14 +243,107 @@ public class GameGUI extends JFrame {
         panel.setBorder(BorderFactory.createLineBorder(new Color(68, 68, 68), 1));
 
         actionButtons[0] = createActionButton("💬 Interact", () -> {
-            String result = maze.interactWithCurrentRoom();
-            appendNarrative(result);
-            updateDisplay();
+            // Check if there's a door adjacent to the player (N/S/E/W)
+            Room currentRoom = maze.getCurrentRoom();
+            int doorRow = -1;
+            int doorCol = -1;
+
+            if (currentRoom != null && currentRoom.layoutGrid != null) {
+                // Check all 4 directions for a door
+                int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // N, S, W, E
+                for (int[] dir : directions) {
+                    int checkRow = playerRow + dir[0];
+                    int checkCol = playerCol + dir[1];
+
+                    if (checkRow >= 0 && checkRow < GRID_HEIGHT &&
+                        checkCol >= 0 && checkCol < GRID_WIDTH) {
+                        char cellContent = currentRoom.layoutGrid[checkRow][checkCol];
+                        if (cellContent == 'd') {
+                            doorRow = checkRow;
+                            doorCol = checkCol;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If door found adjacent, transition to next room
+            if (doorRow >= 0 && doorCol >= 0) {
+                appendNarrative("You walk through the door...");
+
+                // Determine which direction to go based on door location
+                char directionToMove = 'e';  // Default to east
+
+                if (currentRoom != null && currentRoom.layoutGrid != null) {
+                    // Check which side the door is on
+                    if (doorCol == 0) {
+                        directionToMove = 'w';  // Door on left wall, go west
+                    } else if (doorCol == GRID_WIDTH - 1) {
+                        directionToMove = 'e';  // Door on right wall, go east
+                    }
+                }
+
+                boolean moved = maze.move(directionToMove);
+
+                if (moved) {
+                    appendNarrative("You enter the next room.");
+
+                    // Display sensory narrative if first entry
+                    String entranceNarrative = maze.getLastEntranceNarrative();
+                    if (!entranceNarrative.isEmpty()) {
+                        appendSensoryNarrative(entranceNarrative);
+                    }
+
+                    // After transition, position player at the corresponding door in new room
+                    Room newRoom = maze.getCurrentRoom();
+                    if (newRoom != null && newRoom.layoutGrid != null) {
+                        // Find the door in the new room's layout and position player next to it
+                        for (int i = 0; i < GRID_HEIGHT; i++) {
+                            for (int j = 0; j < GRID_WIDTH; j++) {
+                                if (newRoom.layoutGrid[i][j] == 'd') {
+                                    // Place player next to the door in the same row
+                                    if (j == 0) {
+                                        playerCol = 1;  // Door on left wall, stand right of it
+                                    } else if (j == GRID_WIDTH - 1) {
+                                        playerCol = GRID_WIDTH - 2;  // Door on right wall, stand left of it
+                                    }
+                                    playerRow = i;  // Same row as door
+                                    lastRoomName = newRoom.getName();  // Update room tracker
+                                    updateDisplay();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    appendNarrative("The door is locked!");
+                }
+                updateDisplay();
+            } else {
+                // Otherwise, normal interaction
+                String result = maze.interactWithCurrentRoom();
+
+                // Use appropriate color based on interaction type
+                if (result.contains("LONGSWORD") || result.contains("sword")) {
+                    appendItemNarrative(result);
+                } else if (result.contains("CREATURE") || result.contains("BOSS") || result.contains("Sage")) {
+                    appendBossNarrative(result);
+                } else {
+                    appendNarrative(result);
+                }
+                updateDisplay();
+            }
         });
 
         actionButtons[1] = createActionButton("💰 Loot", () -> {
             String result = maze.lootCurrentRoom();
-            appendNarrative(result);
+
+            // Use gold color for loot success
+            if (result.contains("picked up")) {
+                appendItemNarrative(result);
+            } else {
+                appendNarrative(result);
+            }
             updateDisplay();
         });
 
@@ -246,9 +351,20 @@ public class GameGUI extends JFrame {
             appendNarrative(maze.getPlayerInventory());
         });
 
-        actionButtons[3] = createActionButton("🚪 Exit Room", () -> {
+        actionButtons[3] = createActionButton("⚔️ FIGHT", () -> {
             String result = maze.exitCurrentRoom();
-            appendNarrative(result);
+
+            // Use colored narratives for boss fight outcomes
+            if (result.contains("VICTORY")) {
+                appendNarrativeWithColor(result, new Color(144, 238, 144));  // Green for victory
+            } else if (result.contains("DEFEAT") || result.contains("GAME OVER")) {
+                appendNarrativeWithColor(result, new Color(255, 99, 71));  // Red for defeat
+            } else if (result.contains("CREATURE") || result.contains("Sage speaks")) {
+                appendBossNarrative(result);
+            } else {
+                appendNarrative(result);
+            }
+
             updateDisplay();
             if (maze.isFinished()) {
                 showGameOver();
@@ -276,13 +392,11 @@ public class GameGUI extends JFrame {
         btn.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         btn.addActionListener(e -> {
-            // Move player in the grid first
+            // Move player in the grid ONLY - NO room transitions from direction buttons
             boolean moved = movePlayerOnGrid(direction);
 
             if (moved) {
                 appendNarrative("✓ You move " + getDirectionName(direction) + ".");
-                // Also try to move in the maze (for room transitions)
-                maze.move(direction);
             } else {
                 appendNarrative("✗ You cannot move in that direction.");
             }
@@ -522,44 +636,72 @@ public class GameGUI extends JFrame {
     }
 
     private void updateDisplay() {
-        roomLabel.setText("📍 " + maze.getCurrentRoom().getName());
-        scoreLabel.setText("⭐ Score: " + maze.getPlayerScore());
-        inventoryLabel.setText("🎒 Inventory: " + (maze.getPlayerInventory().equals("Inventory: Empty") ? "Empty" : maze.getPlayerInventory()));
+        String currentRoomName = maze.getCurrentRoom().getName();
 
-        // Reset player position when room changes (find player spawn in CSV)
-        Room currentRoom = maze.getCurrentRoom();
-        if (currentRoom != null && currentRoom.objectsGrid != null) {
-            // Look for player spawn position 'p' in objects grid
-            boolean foundPlayer = false;
-            for (int i = 0; i < currentRoom.objectsGrid.length && !foundPlayer; i++) {
-                for (int j = 0; j < currentRoom.objectsGrid[i].length && !foundPlayer; j++) {
-                    if (currentRoom.objectsGrid[i][j] == 'p') {
-                        playerRow = i;
-                        playerCol = j;
-                        foundPlayer = true;
+        // Check if room changed
+        if (!currentRoomName.equals(lastRoomName)) {
+            // Room changed - reset player position to spawn point
+            lastRoomName = currentRoomName;
+            Room currentRoom = maze.getCurrentRoom();
+            if (currentRoom != null && currentRoom.objectsGrid != null) {
+                // Look for player spawn position 'p' in objects grid
+                boolean foundPlayer = false;
+                for (int i = 0; i < currentRoom.objectsGrid.length && !foundPlayer; i++) {
+                    for (int j = 0; j < currentRoom.objectsGrid[i].length && !foundPlayer; j++) {
+                        if (currentRoom.objectsGrid[i][j] == 'p') {
+                            playerRow = i;
+                            playerCol = j;
+                            foundPlayer = true;
+                        }
                     }
                 }
-            }
-            // If no 'p' marker, center player
-            if (!foundPlayer) {
-                playerRow = GRID_HEIGHT / 2;
-                playerCol = GRID_WIDTH / 2;
+                // If no 'p' marker, center player
+                if (!foundPlayer) {
+                    playerRow = GRID_HEIGHT / 2;
+                    playerCol = GRID_WIDTH / 2;
+                }
             }
         }
+
+        roomLabel.setText("📍 " + currentRoomName);
+        scoreLabel.setText("⭐ Score: " + maze.getPlayerScore());
+        inventoryLabel.setText("🎒 Inventory: " + (maze.getPlayerInventory().equals("Inventory: Empty") ? "Empty" : maze.getPlayerInventory()));
 
         mapPanel.repaint();
     }
 
     private void appendNarrative(String text) {
-        narrativeArea.append("\n> " + text);
-        narrativeArea.setCaretPosition(narrativeArea.getDocument().getLength());
+        appendNarrativeWithColor(text, new Color(144, 238, 144));  // Default green
+    }
+
+    private void appendNarrativeWithColor(String text, Color color) {
+        try {
+            javax.swing.text.SimpleAttributeSet attrs = new javax.swing.text.SimpleAttributeSet();
+            javax.swing.text.StyleConstants.setForeground(attrs, color);
+            narrativeArea.getDocument().insertString(narrativeArea.getDocument().getLength(), "\n" + text, attrs);
+            narrativeArea.setCaretPosition(narrativeArea.getDocument().getLength());
+        } catch (Exception e) {
+            System.err.println("Error appending narrative: " + e.getMessage());
+        }
+    }
+
+    private void appendSensoryNarrative(String text) {
+        appendNarrativeWithColor(text, new Color(135, 206, 235));  // Cyan for sensory
+    }
+
+    private void appendItemNarrative(String text) {
+        appendNarrativeWithColor(text, new Color(255, 215, 0));  // Gold for items
+    }
+
+    private void appendBossNarrative(String text) {
+        appendNarrativeWithColor(text, new Color(255, 99, 71));  // Red for danger
     }
 
     private void showGameOver() {
-        narrativeArea.append("\n\n════════════════════════════════════════");
-        narrativeArea.append("\n🎮 GAME OVER");
-        narrativeArea.append("\n📊 Final Score: " + maze.getPlayerScore());
-        narrativeArea.append("\n════════════════════════════════════════");
+        appendNarrativeWithColor("════════════════════════════════════════", new Color(255, 215, 0));
+        appendNarrativeWithColor("🎮 GAME OVER", new Color(255, 215, 0));
+        appendNarrativeWithColor("📊 Final Score: " + maze.getPlayerScore(), new Color(255, 215, 0));
+        appendNarrativeWithColor("════════════════════════════════════════", new Color(255, 215, 0));
     }
 
     private String getDirectionName(char direction) {

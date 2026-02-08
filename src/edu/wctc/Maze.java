@@ -9,6 +9,7 @@ public class Maze {
     private Player player;
     private boolean isFinished;
     private SagesChamber sagesChamber;
+    private String lastEntranceNarrative = "";  // Track entrance narrative for GUI
 
     /**
      * Constructs a Maze and initializes all rooms and connections.
@@ -64,8 +65,9 @@ public class Maze {
         // Boss Chamber connections
         bossChamber.setWest(sagesChamber);
 
-        // Set player's starting room
+        // Set player's starting room and mark as entered
         this.currentRoom = weaponChamber;
+        this.currentRoom.markAsEntered();
     }
 
     /**
@@ -76,6 +78,15 @@ public class Maze {
     public boolean move(char direction) {
         if (currentRoom.isValidDirection(direction)) {
             currentRoom = currentRoom.getAdjoiningRoom(direction);
+
+            // Generate entrance narrative for first entry
+            if (currentRoom.isFirstEntry()) {
+                lastEntranceNarrative = currentRoom.getSensoryDescription();
+                currentRoom.markAsEntered();
+            } else {
+                lastEntranceNarrative = "";
+            }
+
             return true;
         }
         return false;
@@ -92,7 +103,8 @@ public class Maze {
             isFinished = true;
             return result;
         }
-        return "✗ You cannot exit from this room.";
+        // Not a boss room - show message that there's no one to fight here
+        return "✗ There is no one here who deserves your wrath.";
     }
 
     /**
@@ -181,6 +193,23 @@ public class Maze {
      */
     public void setFinished(boolean finished) {
         this.isFinished = finished;
+    }
+
+    /**
+     * Gets the entrance narrative for the current room (sensory description).
+     * Returns empty string if not first entry.
+     * @return the sensory description or empty string
+     */
+    public String getLastEntranceNarrative() {
+        return lastEntranceNarrative;
+    }
+
+    /**
+     * Gets the starting room entrance narrative for the initial game state.
+     * @return the starting sensory description
+     */
+    public String getStartingEntranceNarrative() {
+        return currentRoom.getSensoryDescription();
     }
 }
 
